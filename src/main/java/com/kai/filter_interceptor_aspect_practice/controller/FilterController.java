@@ -10,6 +10,7 @@ public class FilterController {
     @GetMapping("/hello")
     @Operation(summary = "Hello")
     public String hello() {
+        System.out.println("hello in FilterController");
         return "hello";
     }
 

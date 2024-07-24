@@ -8,12 +8,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-public class LogTimeFilter extends OncePerRequestFilter {
+public class SecondFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         long startTime = System.currentTimeMillis();
+        System.out.println("SecondFilter: Request URL before filterChain.doFilter: " + request.getRequestURL() + " Time: " + startTime + "ms");
         filterChain.doFilter(request, response);
         long endTime = System.currentTimeMillis();
-        System.out.println("Request URL: " + request.getRequestURL() + " Time: " + (endTime - startTime) + "ms");
+        System.out.println("SecondFilter: Request URL after filterChain.doFilter: " + request.getRequestURL() + " Time: " + endTime + "ms");
     }
 }
