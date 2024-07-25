@@ -1,6 +1,6 @@
 # Springboot Fileter VS Interceptor VS Aspect
 
-很久之前其實有大概寫過 Aspect，但也都忘光光了，這兩天專案上遇到要在很多地方處理 JWT，我提出 Filter 跟 Interceptor 都可以使用建議。這時我就想，這兩個東西都可以達到目的，那他們的差別到底是啥啊?
+這兩天專案上遇到要在很多地方處理 JWT，我提出 Filter 跟 Interceptor 都可以使用建議。
 
 查一查發現，對吼，我還有 Aspect 也可以達到一樣的目的。
 
@@ -44,8 +44,12 @@ public class OpenApiConfig {
 Filter 是 Servlet 的一部分，它可以在請求進入 Servlet 之前，以及響應返回之前，對請求進行處理。
 也就是到達 Controller 及離開 Controller 之後，Filter 都可以進行處理。
 
-Filter 能拿到 HTTP 請求：Filter 作為 Servlet 規範的一部分，可以訪問原始的 HTTP 請求和響應。
-但拿不到處理請求方法的信息：Filter 在 Spring MVC 的處理流程之前執行，因此它不知道哪個控制器方法將處理這個請求。
+Filter 的主要特點：
+
+- 可以訪問 URL、headers、parameters 等
+- 不知道哪個控制器方法會處理這個請求
+- 可以修改請求和響應
+- 可以阻止請求進入 Controller，但是是藉由不要進入 chain 來達到，不夠直觀。
 
 例如：
 ```java
@@ -151,23 +155,20 @@ FirstFilter: Request URL after filterChain.doFilter: http://localhost:8080/hello
 Interceptor的主要特點:
 
 - 可以訪問請求和響應對象
-- 可以決定請求是否繼續到達Controller
+- 可以決定請求是否繼續到達Controller，這個非常有用，可以用來實現權限控制。雖然 Filter 也可以藉由不要進入 chain 來達到，但 Interceptor 更可以藉由 return false 來達到。在程式碼的操作、閱讀與理解上會更為直觀。
 - 可以在請求處理完成後執行一些後續操作
 - 可以應用於特定的URL模式
-
-能拿到 HTTP 請求信息：Interceptor 可以訪問當前的 HTTP 請求和響應。
-能拿到處理請求方法的信息：Interceptor 知道哪個控制器方法將被調用。
-拿不到方法的參數信息：雖然知道方法，但不能直接訪問傳遞給該方法的實際參數值。
+- 可以知道將被使用的控制器方法資訊。
 
 例如：
 ```java
 public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-    // 可以訪問 HTTP 請求信息
+    // 可以訪問 HTTP 請求資訊
     String url = request.getRequestURL().toString();
     
     if (handler instanceof HandlerMethod) {
         HandlerMethod handlerMethod = (HandlerMethod) handler;
-        // 可以獲取將被調用的控制器方法信息
+        // 可以獲取將被調用的控制器方法資訊
         String controllerName = handlerMethod.getBeanType().getSimpleName();
         String methodName = handlerMethod.getMethod().getName();
         // 但不能直接獲取方法的實際參數值
@@ -266,8 +267,8 @@ Time Taken=3
 
 ### Aspect
 
-能拿到方法的參數信息：Aspect 可以直接訪問被切入方法的參數。
-拿不到 HTTP 請求信息：Aspect 作用於方法級別，默認情況下不直接與 HTTP 層交互。
+能拿到方法的參數資訊：Aspect 可以直接訪問被切入方法的參數。
+拿不到 HTTP 請求資訊：Aspect 作用於方法級別，默認情況下不直接與 HTTP 層交互。
 
 例如：
 ```java
@@ -277,7 +278,7 @@ public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
     Object[] args = joinPoint.getArgs();
     String methodName = joinPoint.getSignature().getName();
     
-    // 但不能直接訪問 HTTP 請求信息
+    // 但不能直接訪問 HTTP 請求資訊
     // 如果需要，可以將 HttpServletRequest 作為參數傳遞給方法
     
     return joinPoint.proceed();
@@ -295,17 +296,48 @@ public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
 |-----------------------------------------------|------------------------------------------------------------------|--------------------------------------------|
 | Filter 接口定義在 `javax.servlet` 包中               | 接口 `HandlerInterceptor` 定義在 `org.springframework.web.servlet` 包中 |                                            |
 | Filter 在 `web.xml` 中定義                        |                                                                  |                                            |
-| Filter 只在 Servlet 前後起作用。                      | 拦截器能夠深入到方法前後、異常拋出前後，具有更大的彈性。                                     | 在 Spring 框架中，優先使用拦截器。拦截器能輕鬆實現 Filter 的所有功能。 |
-| Filter 是 Servlet 規範中定義的。                      | 拦截器既可用於 Web 程式，也可用於 Application、Swing 程式中。                       | 使用範圍不同                                     |
-| Filter 是在 Servlet 規範中定義的，由 Servlet 容器支持。      | 拦截器是在 Spring 容器內，由 Spring 框架支持。                                  | 規範不同                                       |
-| Filter 不能使用 Spring 容器資源                       | 拦截器是 Spring 組件，能使用 Spring 里的任何資源，通過 IoC 注入。                      | 在 Spring 中使用拦截器更容易                         |
+| Filter 只在 Servlet 前後起作用。                      | 攔截器能夠深入到方法前後、異常拋出前後，具有更大的彈性。                                     | 在 Spring 框架中，優先使用攔截器。攔截器能輕鬆實現 Filter 的所有功能。 |
+| Filter 是 Servlet 規範中定義的。                      | 攔截器既可用於 Web 程式，也可用於 Application、Swing 程式中。                       | 使用範圍不同                                     |
+| Filter 是在 Servlet 規範中定義的，由 Servlet 容器支持。      | 攔截器是在 Spring 容器內，由 Spring 框架支持。                                  | 規範不同                                       |
+| Filter 不能使用 Spring 容器資源                       | 攔截器是 Spring 組件，能使用 Spring 裡的任何資源，通過 IoC 注入。                      | 在 Spring 中使用攔截器更容易                         |
 | Filter 由 Server（如 Tomcat）調用                   | Interceptor 由 Spring 調用                                          | 因此 Filter 總是優先於 Interceptor 執行             |
 
 ## 使用情境
 
+| 機制 | 適合的使用情境 |
+|------|----------------|
+| OncePerRequestFilter | • 請求預處理（字符編碼設置、CORS處理）<br>• 安全相關（JWT Token驗證、基本身份驗證）<br>• 請求/響應修改（添加HTTP頭、壓縮響應內容）<br>• 全局異常處理<br>• 請求日誌記錄 |
+| Interceptor | • 性能監控（記錄請求處理時間）<br>• 用戶會話管理<br>• 國際化（設置本地化資訊）<br>• 審計日誌（記錄用戶操作）<br>• 權限檢查（基於角色或權限的訪問控制）<br>• 數據預處理或後處理 |
+| Aspect | • 事務管理<br>• 緩存處理<br>• 方法級安全<br>• 詳細的方法調用日誌記錄<br>• 統一的異常處理和日誌記錄<br>• 方法執行時間監控<br>• 參數驗證 |
 
-## 使用範例
-
+選擇考慮因素：
+1. 需要處理原始HTTP請求和響應時，選擇OncePerRequestFilter。
+2. 需要在Spring MVC處理流程中進行干預時，選擇Interceptor。
+3. 需要跨多個層實現通用功能或處理方法級別的邏輯時，選擇Aspect。
 
 ## 結論
 
+我們用 mermaid 來畫一張一個 http request 進來後，經過 Filter、Interceptor 的流程圖。
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Filter
+    participant Interceptor
+    participant Controller
+
+    Client->>Filter: Request
+    Filter->>Interceptor: Request
+    Interceptor->>Controller: Request
+    Controller->>Interceptor: Response
+    Interceptor->>Filter: Response
+    Filter->>Client: Response
+```
+
+總的來說，Filter、Interceptor、Aspect 都是 Spring 框架中用於處理請求的機制，各有各的特點和使用情境。
+
+如果很單純只是要處理 HTTP request，Filter 就夠用了。
+
+如果你需要對 HTTP request 做更多的操作及拒絕 request，Interceptor 就是你的選擇。
+
+而 Aspect 則是功能強大、彈性也非常大，可以切在你想切得地方，不過也比較複雜，適合用來處理較為複雜的業務邏輯。
